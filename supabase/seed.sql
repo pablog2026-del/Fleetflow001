@@ -28,7 +28,10 @@ insert into public.interval_templates (make, component_category, task, every_mil
   (null, 'Brakes / Air', 'Air dryer cartridge',       60000, null, null, 1.2,  96, 'SAMPLE — replace with OEM manual', true),
   (null, 'Transmission', 'Transmission service',     100000, null, null, 2.0, 265, 'SAMPLE — replace with OEM manual', true),
   (null, 'Hoist',        'Hoist hydraulic filter',    25000, 1200, null, 0.8,  72, 'SAMPLE — replace with OEM manual', true),
-  (null, 'Inspection',   'DOT annual inspection',      null, null,  365, 1.5,   0, '49 CFR 396.17', true);
+  (null, 'Inspection',   'DOT annual inspection',      null, null,  365, 1.5,   0, '49 CFR 396.17', true),
+  (null, 'Inspection',   'Monthly in-depth inspection', null, null,  30, 2.0,   0, 'Northgate shop standard', true);
+update public.interval_templates set inspection_type_key = 'annual' where task = 'DOT annual inspection';
+update public.interval_templates set inspection_type_key = 'monthly' where task = 'Monthly in-depth inspection';
 
 -- Shells Trucking — customer account 001 (Door 1, admin-created)
 insert into public.organizations (id, type, name, account_number, status, signup_source, address_line1, city, state,
@@ -65,6 +68,16 @@ select v.id, t.component_category, t.task, t.every_miles, t.every_hours, t.book_
 from last l
 join public.vehicles v on v.unit_number = l.unit and v.fleet_org_id = '00000000-0000-0000-0000-000000000101'
 join public.interval_templates t on t.task = l.task;
+
+-- inspection intervals per truck (time-based): annual done ~10 months ago, monthly ~3–5 weeks ago
+insert into public.service_intervals (vehicle_id, component_category, task, every_days, book_hours, est_parts_cost,
+  last_done_miles, last_done_hours, last_done_on, source_ref, inspection_type_key, status, confirmed_at)
+select v.id, t.component_category, t.task, t.every_days, t.book_hours, t.est_parts_cost, v.odometer_miles, v.engine_hours,
+       current_date - case t.inspection_type_key when 'annual' then 300 + (row_number() over (partition by t.task order by v.unit_number))::int * 9
+                                                 else 20 + (row_number() over (partition by t.task order by v.unit_number))::int * 3 end,
+       t.source_ref, t.inspection_type_key, 'confirmed', now()
+from public.vehicles v cross join public.interval_templates t
+where v.fleet_org_id = '00000000-0000-0000-0000-000000000101' and t.inspection_type_key is not null;
 
 insert into public.meter_readings (vehicle_id, miles, hours, source, recorded_at)
 select id, odometer_miles - avg_miles_per_day * 30, engine_hours - round(avg_miles_per_day * 30 / 22), 'manual', now() - interval '30 days'

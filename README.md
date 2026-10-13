@@ -16,6 +16,7 @@ Expo (iOS / Android / web PWA) + Supabase app for **Admin + Fleet owner** (build
 | **§12 Roadside / breakdown**: location, symptoms, photos, driveable/tow; urgent activity skips the scheduler; pages the provider (push + SMS); tracks response time, tow and downtime | `breakdown`, `report_breakdown`, `update_breakdown`, Edge Function `dispatch-notifications` |
 | **§12 Fleet reporting**: cost per mile and per engine hour by truck, spend by category, downtime days, PM compliance, DOT-ready file per truck, PDF + CSV | `(owner)/reports`, SQL `fleet_report`, `dot_file` |
 | **§12 Owner deferral**: defer with a reason; stays visible as a reminder; appears in the DOT file | `defer_interval`, `defer_activity` |
+| **Inspections with checklists**: *Vehicle inspection* (annual, 49 CFR 396.17, checklist follows Appendix G: 50 items) and *Monthly in-depth inspection* (every 30 days, shop standard for dump trucks: 59 items with measured brake, air, tire and electrical readings, hoist/PTO, road test). Each is scheduled from the truck's OEM schedule or requested; performed item by item in the app (OK / Defect / Repaired on the spot / N/A, readings, notes); completing it invoices the inspection, resets the interval, and opens a defects repair activity for the owner to approve. Out-of-service (●) defects keep the truck down until repaired. Printable blank checklists and completed reports (PDF); inspections appear in the DOT file | `checklists`, `inspection/[id]`, `supabase/migrations/*inspections.sql` |
 | Security: RLS on every table (admin = all, owner = own fleet, provider = managed fleets, vendor = own orders), audit log, TOTP MFA | `supabase/migrations/*security.sql`, `security` screen |
 
 **Stubbed in the data model only** (later stages): provider workspace (`org_relationships` + `can_work_fleet` already scope it), vendors, `parts_orders`, `vendor_bills`, technicians, labor-time guide, QuickBooks sync. In stage one, Admin runs PG Heavy Duty's work queue: sending estimates, starting and completing work. Paul gets separate **admin** and **provider** memberships, so the two roles stay apart.
@@ -29,7 +30,7 @@ src/lib/            Supabase client, auth, schedule logic (due / forecasts / sta
 supabase/migrations core schema → RLS → workflow RPCs → reporting
 supabase/functions  invite-owner, create-checkout, stripe-webhook, dispatch-notifications
 supabase/seed.sql   Platform, PG Heavy Duty, Shells Trucking (acct 001) with 6 trucks — SAMPLE intervals
-supabase/tests      Plain-Postgres harness: 40 RLS + workflow assertions
+supabase/tests      Plain-Postgres harness: 65 RLS + workflow + inspection assertions
 ```
 
 ## Run it
@@ -60,6 +61,7 @@ npm run export:web         # production PWA bundle
 
 ## Before Shells goes live
 
+- **Review the inspection checklists** (`inspection_items`): the annual list follows Appendix G; the monthly list and its typical reading ranges are a starting point and should be checked against the OEM manuals.
 - **Replace the SAMPLE intervals** with ones taken from the OEM manuals (manual and section in `source_ref`, link in `source_url`), then confirm each one.
 - **Revenue model (§12)** is still open. It is a setting (A subscription / B fee / C both). Stripe Connect routing and the application fee are already wired: set `organizations.stripe_account_id` on PG Heavy Duty.
 - **NC sales tax**: the rate defaults to 0% until the CPA confirms.

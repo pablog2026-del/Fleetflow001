@@ -5,7 +5,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 import { longDate, money, num } from './format';
-import type { DotFile, FleetReport, Invoice, InvoiceLine, Organization } from './types';
+import type { DotFile, FleetReport, Inspection, InspectionItem, InspectionResult, InspectionType, Invoice, InvoiceLine, Organization } from './types';
 
 const esc = (x: unknown) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
@@ -130,6 +130,9 @@ export function dotFileHtml(d: DotFile) {
     <h2>Annual inspection (49 CFR 396.17)</h2>
     ${d.annual_inspection ? table(['RA', 'Date', 'Miles', 'Next due'], [[`#${d.annual_inspection.id}`, longDate(d.annual_inspection.date), num(d.annual_inspection.miles), longDate(d.annual_inspection.next_due)]])
       : '<p><b>No annual inspection on file.</b></p>'}
+    <h2>Inspections (last 14 months)</h2>
+    ${d.inspections?.length ? table(['#', 'Type', 'Date', 'Miles', 'Result', 'Inspector'], d.inspections.map((x) => [`#${x.id}`, x.type, longDate(x.date), num(x.miles),
+      x.passed ? `Passed${x.repaired ? ` (${x.repaired} fixed on the spot)` : ''}` : `Failed — ${x.failed} defect(s), RA #${x.defects_activity_id ?? '—'}`, x.inspector ?? '—'])) : '<p class="muted">None on file.</p>'}
     <h2>Defects reported &amp; closed</h2>
     ${d.defects_closed.length ? table(['RA', 'Reported', 'Closed', 'Defect'], d.defects_closed.map((x) => [`#${x.id}`, longDate(x.reported), longDate(x.closed), `${x.title}${x.description ? ' — ' + x.description : ''}`])) : '<p class="muted">None.</p>'}
     <h2>Deferred by owner</h2>
@@ -153,3 +156,41 @@ export function serviceReportHtml(o: { fleet: string; unit: string; vin: string;
 
 export const categoryLabel = (k: string) =>
   ({ pm: 'Preventive maintenance', repair: 'Repair', tires: 'Tires', breakdown: 'Breakdown', inspection: 'Inspection', plan: 'Monthly plan' } as Record<string, string>)[k] ?? k;
+
+const RESULT_LABEL: Record<string, string> = { pass: 'OK', fail: 'DEFECT', repaired: 'Repaired', na: 'N/A' };
+
+/** Printable checklist. Without an inspection it is a blank form to fill in by hand. */
+export function checklistHtml(type: InspectionType, items: InspectionItem[], opts: {
+  inspection?: Inspection; results?: InspectionResult[]; vehicle?: { unit: string; vin: string; year: number | null; make: string | null; model: string | null };
+  fleet?: string;
+} = {}) {
+  const { inspection: ins, results = [], vehicle: v, fleet } = opts;
+  const byItem = new Map(results.map((r) => [r.item_id, r]));
+  const sections = [...new Set(items.map((i) => i.section))];
+  const box = '<span style="display:inline-block;width:11px;height:11px;border:1px solid #333;margin-right:3px"></span>';
+  const blankCells = `<td style="white-space:nowrap">${box}OK ${box}Defect ${box}Rep. ${box}N/A</td>`;
+  const failed = results.filter((r) => r.result === 'fail');
+  const head = `<div class="brand"><div><h1>${esc(type.name)}${ins ? ` · #${ins.id}` : ''}</h1>
+    <div class="muted">${esc(type.regulation ?? '')}</div></div>
+    <div style="text-align:right">${fleet ? `<b>${esc(fleet)}</b><br>` : ''}${v ? `Unit ${esc(v.unit)} · ${esc([v.year, v.make, v.model].filter(Boolean).join(' '))}<br>VIN ${esc(v.vin)}` : 'Unit ______  VIN _________________'}</div></div>
+    <p class="muted">${esc(type.description ?? '')}</p>
+    ${table(['Date', 'Odometer', 'Engine hours', 'Inspector', 'Result'], [[
+      ins?.completed_at ? longDate(ins.completed_at) : '__________', ins?.odometer_miles != null ? num(ins.odometer_miles) : '__________',
+      ins?.engine_hours != null ? num(ins.engine_hours) : '________', ins?.inspector_name ?? '____________________',
+      ins?.status === 'completed' ? (ins.passed ? 'PASSED' : `FAILED — ${failed.length} defect(s)`) : '☐ Pass ☐ Fail']])}`;
+  const defects = ins && failed.length ? `<h2>Defects found</h2>${table(['Section', 'Item', 'Defect'],
+    failed.map((r) => { const it = items.find((i) => i.id === r.item_id)!; return [it.section, it.label + (it.critical ? ' (out of service)' : ''), r.note ?? '']; }))}` : '';
+  const body = sections.map((sec) => {
+    const rows = items.filter((i) => i.section === sec);
+    return `<h2>${esc(sec)}</h2><table><thead><tr><th style="width:38%">Item</th><th>Standard</th><th>${ins ? 'Result' : 'Check'}</th><th>${ins ? 'Reading / note' : 'Reading / note'}</th></tr></thead><tbody>
+      ${rows.map((i) => { const r = byItem.get(i.id); return `<tr><td><b>${esc(i.label)}</b>${i.critical ? ' <span style="color:#b00">●</span>' : ''}${i.reference ? `<br><span class="muted">${esc(i.reference)}</span>` : ''}</td>
+        <td>${esc(i.guidance ?? '')}</td>${ins ? `<td><b>${RESULT_LABEL[r?.result ?? ''] ?? '—'}</b></td>` : blankCells}
+        <td>${ins ? esc([r?.measurement && `${r.measurement} ${i.measure_unit ?? ''}`, r?.note].filter(Boolean).join(' · ')) : (i.measure_unit ? `______ ${esc(i.measure_unit)}` : '')}</td></tr>`; }).join('')}
+      </tbody></table>`;
+  }).join('');
+  const sign = `<h2>Certification</h2><p>I certify that this vehicle was inspected in accordance with ${esc(type.regulation ?? 'the standard above')}${type.key === 'annual' ? ' and that each component listed meets the minimum standards of Appendix G' : ''}.</p>
+    <p>Inspector: ${esc(ins?.inspector_name ?? '______________________')} &nbsp; Signature: ______________________ &nbsp; Date: ${ins?.completed_at ? esc(longDate(ins.completed_at)) : '__________'}</p>
+    ${type.key === 'annual' ? '<p class="muted">Keep this report for 14 months; carry it, or a decal, on the vehicle (49 CFR 396.17, 396.21). The inspector must be qualified under 49 CFR 396.19.</p>' : ''}
+    <p class="muted"><span style="color:#b00">●</span> = out-of-service item: a defect keeps the truck down until repaired.</p>`;
+  return page(`${type.name}${ins ? ` #${ins.id}` : ''}`, head + defects + body + (ins?.notes ? `<h2>Notes</h2><p>${esc(ins.notes)}</p>` : '') + sign);
+}

@@ -128,7 +128,7 @@ select pg_temp.as_user(:selfy);
 select set_config('t.org', public.self_signup_create_fleet('{"name":"Fresh Haulers LLC","city":"Durham"}')::text, false);
 select pg_temp.check((select status from organizations where id = current_setting('t.org')::uuid) = 'pending', 'self-signup starts pending');
 insert into vehicles (fleet_org_id, unit_number, vin, make) values (current_setting('t.org')::uuid, 'FH1', '1NKZXPTX0NJ470826', 'Kenworth');
-select pg_temp.check(public.apply_interval_templates((select id from vehicles where unit_number = 'FH1')) = 6, 'templates build draft schedule');
+select pg_temp.check(public.apply_interval_templates((select id from vehicles where unit_number = 'FH1')) = 7, 'templates build draft schedule');
 select pg_temp.check((select count(*) from vehicles) = 1, 'new owner sees only their own truck');
 select pg_temp.reset();
 select pg_temp.as_user(:admin);
@@ -154,3 +154,69 @@ exception when insufficient_privilege then raise notice 'ok - outsider cannot re
 end $$;
 select pg_temp.reset();
 select pg_temp.check((select count(*) from audit_log where table_name = 'repair_activities') > 0, 'audit log records changes');
+
+-- ---------------------------------------------------------------- inspections
+select pg_temp.check((select count(*) from inspection_items where type_key = 'annual') >= 40, 'vehicle inspection checklist loaded');
+select pg_temp.check((select count(*) from inspection_items where type_key = 'monthly') >= 50, 'monthly in-depth checklist loaded');
+
+select pg_temp.as_user(:owner);
+select set_config('t.mi', public.schedule_interval(
+  (select s.id from service_intervals s join vehicles v on v.id = s.vehicle_id where v.unit_number = 'ST5' and s.inspection_type_key = 'monthly'),
+  current_date + 1)::text, false);
+select pg_temp.check((select inspection_type_key = 'monthly' and category = 'inspection' from repair_activities where id = current_setting('t.mi')::bigint),
+  'scheduled monthly inspection carries its type');
+do $$ begin
+  perform public.start_inspection(current_setting('t.mi')::bigint);
+  raise exception 'owner started an inspection';
+exception when insufficient_privilege then raise notice 'ok - owner cannot perform inspections';
+end $$;
+select pg_temp.reset();
+
+select pg_temp.as_user(:admin);
+do $$ begin
+  perform public.complete_activity(current_setting('t.mi')::bigint);
+  raise exception 'completed an inspection without its checklist';
+exception when insufficient_privilege then raise notice 'ok - inspection activity needs a completed checklist';
+end $$;
+select set_config('t.insp', public.start_inspection(current_setting('t.mi')::bigint)::text, false);
+select pg_temp.check(public.start_inspection(current_setting('t.mi')::bigint) = current_setting('t.insp')::bigint, 'start_inspection resumes the open checklist');
+select pg_temp.check((select status from repair_activities where id = current_setting('t.mi')::bigint) = 'progress', 'starting the checklist starts the work');
+-- answer everything as pass (with readings), then fail one critical item
+select public.record_inspection_item(current_setting('t.insp')::bigint, id, 'pass', case when measure_unit is not null then '1' end)
+from inspection_items where type_key = 'monthly' and label not like 'Hoist cylinder%';
+do $$ begin
+  perform public.complete_inspection(current_setting('t.insp')::bigint);
+  raise exception 'completed with an item missing';
+exception when insufficient_privilege then raise notice 'ok - every checklist item needs a result';
+end $$;
+do $$ begin
+  perform public.record_inspection_item(current_setting('t.insp')::bigint,
+    (select id from inspection_items where type_key = 'monthly' and label like 'Hoist cylinder%'), 'fail');
+  raise exception 'failed an item without a note';
+exception when insufficient_privilege then raise notice 'ok - a failed item needs a defect description';
+end $$;
+select public.record_inspection_item(current_setting('t.insp')::bigint,
+  (select id from inspection_items where type_key = 'monthly' and label like 'Hoist cylinder%'), 'fail', null, 'Rod seal leaking, pin worn');
+select set_config('t.res', public.complete_inspection(current_setting('t.insp')::bigint, 9900, 710, 'Paul Ndichu')::text, false);
+select pg_temp.check(not (current_setting('t.res')::jsonb->>'passed')::boolean, 'failed item fails the inspection');
+select pg_temp.check((select status from repair_activities where id = current_setting('t.mi')::bigint) = 'done', 'inspection activity completed');
+select pg_temp.check(exists (select 1 from invoices where activity_id = current_setting('t.mi')::bigint), 'inspection invoiced');
+select pg_temp.check((select last_done_on from service_intervals s join vehicles v on v.id = s.vehicle_id
+                      where v.unit_number = 'ST5' and s.inspection_type_key = 'monthly') = current_date, 'monthly interval reset');
+select pg_temp.check((select status = 'requested' and urgency = 'Out of service' and description like '%Rod seal%'
+                      from repair_activities where id = (current_setting('t.res')::jsonb->>'defects_activity_id')::bigint),
+  'critical failure opens an out-of-service defects activity');
+select pg_temp.check(not (select in_service from vehicles where unit_number = 'ST5'), 'critical defect keeps the truck out of service');
+select pg_temp.reset();
+
+select pg_temp.as_user(:owner);
+select pg_temp.check((select count(*) from inspection_results where inspection_id = current_setting('t.insp')::bigint) > 50, 'owner can read inspection results');
+select pg_temp.check(jsonb_array_length(public.dot_file('00000000-0000-0000-0001-000000000005')->'inspections') = 1, 'inspection appears in the DOT file');
+do $$ begin
+  perform public.record_inspection_item(current_setting('t.insp')::bigint, (select id from inspection_items limit 1), 'pass');
+  raise exception 'owner edited results';
+exception when insufficient_privilege then raise notice 'ok - owner cannot edit results';
+end $$;
+select set_config('t.req', public.request_service('00000000-0000-0000-0001-000000000002', 'DOT inspection', 'This week', null)::text, false);
+select pg_temp.check((select inspection_type_key from repair_activities where id = current_setting('t.req')::bigint) = 'annual', 'requested DOT inspection becomes a vehicle inspection');
+select pg_temp.reset();

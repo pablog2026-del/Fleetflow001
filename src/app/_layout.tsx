@@ -36,6 +36,8 @@ export default function RootLayout() {
             <Stack.Screen name="review/[fleet]" options={{ title: 'Review OEM schedules' }} />
             <Stack.Screen name="fleet/[id]" options={{ title: 'Fleet view' }} />
             <Stack.Screen name="security" options={{ title: 'Security' }} />
+            <Stack.Screen name="inspection/[id]" options={{ title: 'Inspection' }} />
+            <Stack.Screen name="checklists" options={{ title: 'Inspection checklists' }} />
           </Stack>
         </ThemeProvider>
       </AuthProvider>

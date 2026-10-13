@@ -89,6 +89,7 @@ export default function Settings() {
         <Note>Admin and provider are separate memberships, even for the same person.</Note>
       </Section>
       <Section style={{ gap: 10 }}>
+        <Button title="Inspection checklists" icon="clipboard-outline" onPress={() => router.push('/checklists')} />
         <Button title="Security (two-factor)" icon="shield-checkmark-outline" onPress={() => router.push('/security')} />
         <Button title="Sign out" kind="ghost" onPress={async () => { await signOut(); router.replace('/auth/sign-in'); }} />
         <View style={{ height: 8 }} />

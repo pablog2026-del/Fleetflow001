@@ -86,6 +86,7 @@ export interface ServiceInterval {
   source_ref: string | null;
   source_url: string | null;
   status: IntervalStatus;
+  inspection_type_key: string | null;
   confirmed_at: string | null;
   created_at: string;
 }
@@ -112,6 +113,7 @@ export interface RepairActivity {
   deferred_reason: string | null;
   deferred_until: string | null;
   labor_rate: number | null;
+  inspection_type_key: string | null;
   created_at: string;
 }
 
@@ -255,9 +257,61 @@ export interface DotFile {
   generated_at: string;
   carrier: { name: string; usdot: string | null; address: string };
   vehicle: { unit: string; vin: string; year: number | null; make: string | null; model: string | null; plate: string | null; plate_state: string | null; odometer: number; engine_hours: number };
-  annual_inspection: { id: number; date: string; miles: number | null; next_due: string } | null;
+  annual_inspection: { id: number; date: string; miles: number | null; next_due: string; passed?: boolean; inspector?: string | null } | null;
+  inspections: { id: number; type: string; date: string; miles: number | null; passed: boolean; inspector: string | null;
+    defects_activity_id: number | null; failed: number; repaired: number }[];
   repair_history: { id: number; date: string; title: string; category: string; component: string; miles: number | null; total: number }[];
   defects_closed: { id: number; reported: string; closed: string; title: string; description: string | null }[];
   deferred: { id: number; date: string; title: string; reason: string; until: string | null }[];
   open_items: { id: number; title: string; status: string; opened: string }[];
+}
+
+export type InspectionResultValue = 'pass' | 'fail' | 'repaired' | 'na';
+
+export interface InspectionType {
+  key: string;
+  name: string;
+  description: string | null;
+  every_days: number | null;
+  regulation: string | null;
+  position: number;
+}
+
+export interface InspectionItem {
+  id: string;
+  type_key: string;
+  section: string;
+  section_position: number;
+  position: number;
+  label: string;
+  guidance: string | null;
+  reference: string | null;
+  measure_unit: string | null;
+  critical: boolean;
+  active: boolean;
+}
+
+export interface Inspection {
+  id: number;
+  type_key: string;
+  fleet_org_id: string;
+  vehicle_id: string;
+  activity_id: number | null;
+  status: 'in_progress' | 'completed';
+  passed: boolean | null;
+  odometer_miles: number | null;
+  engine_hours: number | null;
+  inspector_name: string | null;
+  notes: string | null;
+  defects_activity_id: number | null;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export interface InspectionResult {
+  inspection_id: number;
+  item_id: string;
+  result: InspectionResultValue;
+  measurement: string | null;
+  note: string | null;
 }

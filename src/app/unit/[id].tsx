@@ -10,11 +10,11 @@ import { ask, say } from '../../lib/alert';
 import { useAuth } from '../../lib/auth';
 import { dotFileHtml, exportPdf } from '../../lib/export';
 import { loadFleet, signedUrls, uploadDocument } from '../../lib/fleet';
-import { errorMessage, money0, num } from '../../lib/format';
+import { errorMessage, longDate, money0, num } from '../../lib/format';
 import { byCat, CATS, due, truckStatus } from '../../lib/schedule';
 import { must, rpc, supabase } from '../../lib/supabase';
 import { C } from '../../lib/theme';
-import type { DocumentRow, DotFile, Vehicle } from '../../lib/types';
+import type { DocumentRow, DotFile, Inspection, InspectionType, Vehicle } from '../../lib/types';
 import { useData } from '../../lib/useData';
 
 export default function Unit() {
@@ -31,11 +31,16 @@ export default function Unit() {
     const docs = must(await supabase.from('documents').select('*').eq('vehicle_id', id).order('created_at', { ascending: false })) as DocumentRow[];
     const spent = must(await supabase.from('invoices').select('total').eq('vehicle_id', id).eq('kind', 'service').neq('status', 'void'))
       .reduce((a: number, r: { total: number }) => a + Number(r.total), 0);
-    return { ...fleet, v: fleet.vehicles.find((x) => x.id === id)!, docs, urls: await signedUrls(docs), spent };
+    const [inspections, types] = await Promise.all([
+      supabase.from('inspections').select('*').eq('vehicle_id', id).order('started_at', { ascending: false }).limit(20).then(must),
+      supabase.from('inspection_types').select('*').order('position').then(must),
+    ]);
+    return { ...fleet, v: fleet.vehicles.find((x) => x.id === id)!, docs, urls: await signedUrls(docs), spent,
+      inspections: inspections as Inspection[], types: types as InspectionType[] };
   }, [id]);
   if (!data) return <Loading error={error} onRetry={reload} />;
 
-  const { v, intervals, acts, docs, urls, spent, org } = data;
+  const { v, intervals, acts, docs, urls, spent, org, inspections, types } = data;
   const mine = intervals.filter((i) => i.vehicle_id === v.id);
   const st = truckStatus(v, intervals, acts);
   const g = byCat([v], mine, acts.filter((a) => a.vehicle_id === v.id));
@@ -172,6 +177,31 @@ export default function Unit() {
         {isAdmin && mine.some((i) => i.status === 'draft') && (
           <Button title="Review & confirm intervals" onPress={() => router.push(`/review/${v.fleet_org_id}`)} style={{ marginTop: 8 }} />
         )}
+      </Section>
+
+      <Section title="Inspections" right={<Pressable onPress={() => router.push('/checklists')}><Text style={{ color: C.amber, fontWeight: '700' }}>Checklists</Text></Pressable>}>
+        <Card>
+          {types.map((t, n) => {
+            const it = mine.find((i) => i.inspection_type_key === t.key && i.status === 'confirmed');
+            const last = inspections.find((x) => x.type_key === t.key && x.status === 'completed');
+            const d = it ? due(v, it) : null;
+            return (
+              <Pressable key={t.key} onPress={() => it ? router.push(`/interval/${it.id}`) : undefined}>
+                <KV k={t.name} sub={last ? `Last: ${longDate(last.completed_at)} · ${last.passed ? 'passed' : 'defects found'}` : 'No inspection on file'}
+                  v={<Text style={{ color: !d ? C.muted : d.over ? '#FF9A9A' : d.soon ? '#F6C46A' : C.soft, fontWeight: '600' }}>{d ? (d.over ? `Overdue · ${d.lead}` : `Due ${d.lead}`) : 'Not scheduled'}</Text>}
+                  last={n === types.length - 1 && !inspections.length} />
+              </Pressable>
+            );
+          })}
+          {inspections.slice(0, 6).map((x, n, arr) => (
+            <Pressable key={x.id} onPress={() => router.push(`/inspection/${x.id}`)}>
+              <KV k={`#${x.id} · ${types.find((t) => t.key === x.type_key)?.name ?? x.type_key}`}
+                sub={x.completed_at ? longDate(x.completed_at) : `Started ${longDate(x.started_at)}`}
+                v={<Pill label={x.status === 'in_progress' ? 'In progress' : x.passed ? 'Passed' : 'Failed'} tone={x.status === 'in_progress' ? 'blue' : x.passed ? 'grn' : 'red'} />}
+                last={n === arr.length - 1} />
+            </Pressable>
+          ))}
+        </Card>
       </Section>
 
       <Section title="Resources">

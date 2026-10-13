@@ -9,7 +9,7 @@ import { must, rpc, supabase } from '../../lib/supabase';
 import type { Vehicle } from '../../lib/types';
 import { useData } from '../../lib/useData';
 
-const ISSUES = ['Warning light', 'Hoist / hydraulics', 'Brakes / air', 'Tires', 'Scheduled PM', 'DOT inspection', 'Other'] as const;
+const ISSUES = ['Warning light', 'Hoist / hydraulics', 'Brakes / air', 'Tires', 'Scheduled PM', 'Vehicle inspection', 'Monthly inspection', 'Other'] as const;
 const URGENCY = ['Truck down', 'This week', 'Next PM'] as const;
 
 export default function Request() {

@@ -14,7 +14,7 @@ import { dateLabel, errorMessage, isoDate, money, num } from '../../lib/format';
 import { STATUS } from '../../lib/schedule';
 import { must, rpc, supabase } from '../../lib/supabase';
 import { C } from '../../lib/theme';
-import type { ActivityEvent, Breakdown, DocumentRow, EstimateLine, Invoice, Organization, RepairActivity, Vehicle } from '../../lib/types';
+import type { ActivityEvent, Breakdown, DocumentRow, EstimateLine, Inspection, Invoice, Organization, RepairActivity, Vehicle } from '../../lib/types';
 import { useData } from '../../lib/useData';
 
 const hrsBetween = (a?: string | null, b?: string | null) =>
@@ -40,13 +40,23 @@ export default function ActivityScreen() {
       supabase.from('invoices').select('*').eq('activity_id', id).neq('status', 'void').maybeSingle().then(must),
       supabase.from('documents').select('*').eq('activity_id', id).then(must),
     ]);
+    const inspections = must(await supabase.from('inspections').select('*').eq('activity_id', id).order('id', { ascending: false })) as Inspection[];
+    const origin = must(await supabase.from('inspections').select('*').eq('defects_activity_id', id).maybeSingle()) as Inspection | null;
+    const typeName = a.inspection_type_key
+      ? (must(await supabase.from('inspection_types').select('name').eq('key', a.inspection_type_key).single()) as { name: string }).name : null;
     return { a, v: v as Vehicle, org: org as Organization, provider: provider as { name: string } | null, events: events as ActivityEvent[],
       lines: lines as EstimateLine[], bd: bd as Breakdown | null, invoice: invoice as Invoice | null, docs: docs as DocumentRow[],
-      urls: await signedUrls(docs as DocumentRow[]) };
+      urls: await signedUrls(docs as DocumentRow[]), inspection: inspections[0] ?? null, origin, typeName };
   }, [id]);
   if (!data) return <Loading error={error} onRetry={reload} />;
 
-  const { a, v, org, provider, events, lines, bd, invoice, docs, urls } = data;
+  const { a, v, org, provider, events, lines, bd, invoice, docs, urls, inspection, origin, typeName } = data;
+
+  const openInspection = async () => {
+    setBusy(true);
+    try { router.push(`/inspection/${await rpc<number>('start_inspection', { p_activity: a.id })}`); reload(); }
+    catch (e) { say('Could not start inspection', errorMessage(e)); } finally { setBusy(false); }
+  };
   const st = STATUS[a.status];
   const total = lines.reduce((t, l) => t + Number(l.amount), 0);
   const providerName = provider?.name ?? 'Your provider';
@@ -87,6 +97,29 @@ export default function ActivityScreen() {
         {a.status === 'deferred' && <Text style={[s.small, { color: '#F6C46A' }]}>Deferred: {a.deferred_reason}{a.deferred_until ? ` · until ${dateLabel(a.deferred_until)}` : ''}</Text>}
         {a.status === 'declined' && a.declined_reason && <Text style={[s.small, { color: '#FF9A9A' }]}>Declined: {a.declined_reason}</Text>}
       </View>
+
+      {typeName && (
+        <Section title={typeName}>
+          <Card>
+            <KV k="Checklist" v={inspection ? (inspection.status === 'completed' ? (inspection.passed ? 'Passed' : 'Defects found') : 'In progress') : 'Not started'}
+              color={inspection?.status === 'completed' ? (inspection.passed ? '#7FD9B0' : '#FF9A9A') : undefined} />
+            <KV k="Inspection" v={inspection ? `#${inspection.id}${inspection.completed_at ? ' · ' + dateLabel(inspection.completed_at) : ''}` : '—'} last />
+          </Card>
+          <View style={{ gap: 8, marginTop: 8 }}>
+            {inspection && <Button title={inspection.status === 'completed' ? 'View inspection report' : isAdmin ? 'Continue checklist' : 'View checklist progress'}
+              kind={isAdmin && inspection.status !== 'completed' ? 'primary' : 'default'} icon="clipboard-outline" onPress={() => router.push(`/inspection/${inspection.id}`)} />}
+            {isAdmin && !inspection && ['scheduled', 'progress'].includes(a.status) && (
+              <Button title="Start inspection checklist" kind="primary" icon="clipboard-outline" busy={busy} onPress={openInspection} />
+            )}
+            {inspection?.defects_activity_id && <Button title={`Defect repairs · RA #${inspection.defects_activity_id}`} onPress={() => router.push(`/activity/${inspection.defects_activity_id}`)} />}
+          </View>
+        </Section>
+      )}
+      {origin && (
+        <Section style={{ marginTop: 6 }}>
+          <Button title={`Found in inspection #${origin.id}`} kind="ghost" icon="clipboard-outline" onPress={() => router.push(`/inspection/${origin.id}`)} />
+        </Section>
+      )}
 
       {bd && (
         <Section title="Roadside">
@@ -196,8 +229,8 @@ export default function ActivityScreen() {
         <Section style={{ gap: 10 }}>
           {['estimate', 'deferred'].includes(a.status) && <Button title="Revise estimate" onPress={() => router.push(`/estimate/${a.id}`)} />}
           {a.status === 'estimate' && <Note>Waiting for {org.name} to approve.</Note>}
-          {a.status === 'scheduled' && <Button title="Start work" kind="primary" busy={busy} onPress={() => act(() => rpc('start_work', { p_activity: a.id }))} />}
-          {['scheduled', 'progress'].includes(a.status) && <Button title="Complete & send report" kind={a.status === 'progress' ? 'primary' : 'default'}
+          {a.status === 'scheduled' && !typeName && <Button title="Start work" kind="primary" busy={busy} onPress={() => act(() => rpc('start_work', { p_activity: a.id }))} />}
+          {['scheduled', 'progress'].includes(a.status) && !typeName && <Button title="Complete & send report" kind={a.status === 'progress' ? 'primary' : 'default'}
             onPress={() => { setMeter({ miles: String(Math.round(v.odometer_miles)), hours: String(Math.round(v.engine_hours)), notes: '' }); setMode('complete'); }} />}
         </Section>
       )}

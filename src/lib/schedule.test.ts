@@ -15,14 +15,14 @@ const truck = (o: Partial<Vehicle> = {}): Vehicle => ({
 const interval = (o: Partial<ServiceInterval> = {}): ServiceInterval => ({
   id: 'i1', vehicle_id: 'v1', component_category: 'Engine', task: 'Engine PM', every_miles: 15000, every_hours: 750,
   every_days: null, book_hours: 2.5, est_parts_cost: 185, last_done_miles: 103640, last_done_hours: 4711,
-  last_done_on: null, source_ref: null, source_url: null, status: 'confirmed', confirmed_at: null,
+  last_done_on: null, source_ref: null, source_url: null, status: 'confirmed', confirmed_at: null, inspection_type_key: null,
   created_at: '2026-01-01T00:00:00Z', ...o,
 });
 const act = (o: Partial<RepairActivity> = {}): RepairActivity => ({
   id: 1047, fleet_org_id: 'f', provider_org_id: null, vehicle_id: 'v1', interval_id: null, kind: 'request',
   category: 'repair', status: 'requested', title: 'Air leak', component_category: 'Brakes', description: null,
   urgency: null, scheduled_for: null, approved_at: null, started_at: null, completed_at: null, completed_miles: null,
-  declined_reason: null, deferred_reason: null, deferred_until: null, labor_rate: 150, created_at: '2026-10-10T00:00:00Z', ...o,
+  declined_reason: null, deferred_reason: null, deferred_until: null, labor_rate: 150, inspection_type_key: null, created_at: '2026-10-10T00:00:00Z', ...o,
 });
 
 test('due: miles limit coming up first', () => {
