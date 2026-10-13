@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Northgate Fleet",
+    "slug": "northgate-fleet",
+    "scheme": "northgate",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0F1114",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.northgatefleet.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Take photos of data plates and damage for your repair records.",
+        "NSPhotoLibraryUsageDescription": "Attach photos to a breakdown report.",
+        "NSLocationWhenInUseUsageDescription": "Send your truck's location with a breakdown report."
+      }
+    },
+    "android": {
+      "package": "com.northgatefleet.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0F1114",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION"],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "name": "Northgate Fleet",
+      "shortName": "Northgate",
+      "themeColor": "#0F1114",
+      "backgroundColor": "#0F1114",
+      "display": "standalone"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-web-browser",
+      "expo-sharing",
+      ["expo-image-picker", { "cameraPermission": "Take photos of data plates and damage for your repair records." }],
+      ["expo-location", { "locationWhenInUsePermission": "Send your truck's location with a breakdown report." }],
+      "expo-notifications"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

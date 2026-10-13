@@ -1,0 +1,39 @@
+# Supabase CLI project config (`supabase start` for local dev).
+project_id = "northgate-fleet"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+
+[db]
+port = 54322
+major_version = 16
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[auth]
+enabled = true
+site_url = "http://localhost:8081"
+additional_redirect_urls = ["http://localhost:8081/auth/callback", "northgate://auth/callback"]
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[storage]
+enabled = true
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.dispatch-notifications]
+verify_jwt = false
