@@ -1,0 +1,41 @@
+# Builds the web app (PWA) and publishes it to GitHub Pages on every push:
+#   https://pablog2026-del.github.io/Fleetflow001/
+# The Supabase URL and publishable key are public values (they ship inside the app).
+name: Deploy web app
+
+on:
+  push:
+    branches: [main, claude/stage-one-expo-supabase-kl4o4k]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: web-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_BASE_URL: /Fleetflow001
+      EXPO_PUBLIC_SUPABASE_URL: https://zyoucmkepcyjjvqyyegs.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_rYzFeDb3x1jKWZrzKHBkWA_1aj_8vDL
+      EXPO_PUBLIC_APP_URL: https://pablog2026-del.github.io/Fleetflow001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx expo export --platform web
+      # single-page app: unknown paths fall back to the app; keep _expo/ (no Jekyll)
+      - run: cp dist/index.html dist/404.html && touch dist/.nojekyll
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: true

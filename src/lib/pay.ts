@@ -1,11 +1,11 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
-import { supabase } from './supabase';
+import { APP_URL, supabase } from './supabase';
 
 /** Opens Stripe Checkout (ACH first, card second) for the given open invoices. */
 export async function payInvoices(invoiceIds: string[]): Promise<void> {
-  const returnUrl = Platform.OS === 'web' ? `${window.location.origin}/accounting` : Linking.createURL('/accounting');
+  const returnUrl = Platform.OS === 'web' ? `${APP_URL.replace(/\/$/, '')}/accounting` : Linking.createURL('/accounting');
   const { data, error } = await supabase.functions.invoke('create-checkout', { body: { invoiceIds, returnUrl } });
   if (error) {
     let msg = error.message;
