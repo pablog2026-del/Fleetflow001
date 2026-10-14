@@ -1,7 +1,7 @@
 // Door 2: self-signup. The account starts empty and pending until Admin approves.
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { say } from '../../lib/alert';
 import { Button, Field, Screen, s } from '../../components/ui';
 import { errorMessage } from '../../lib/format';
@@ -35,7 +35,9 @@ export default function SignUp() {
 
   return (
     <Screen>
-      <View style={{ padding: 20 }}>
+      <View style={{ padding: 20, width: '100%', maxWidth: 460, alignSelf: 'center' }}>
+        <Image source={require('../../../assets/logo.png')} resizeMode="contain" accessibilityLabel="Northgate Fleet Systems"
+          style={{ width: 220, height: 143, alignSelf: 'center', marginBottom: 8 }} />
         <Text style={s.sub}>Your account starts as a trial. Add your company and trucks by VIN; Northgate reviews your OEM schedules before anything is official.</Text>
         <Field label="Your name" value={name} onChangeText={setName} autoComplete="name" />
         <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />

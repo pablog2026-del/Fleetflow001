@@ -16,7 +16,8 @@ export default function RootLayout() {
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(owner)" options={{ headerShown: false }} />
             <Stack.Screen name="admin" options={{ headerShown: false }} />
-            <Stack.Screen name="auth/sign-in" options={{ headerShown: false }} />
+            <Stack.Screen name="welcome" options={{ headerShown: false, title: 'Northgate Fleet Systems' }} />
+            <Stack.Screen name="auth/sign-in" options={{ headerShown: false, title: 'Sign in' }} />
             <Stack.Screen name="auth/sign-up" options={{ title: 'Create account' }} />
             <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
             <Stack.Screen name="auth/set-password" options={{ title: 'Set your password' }} />

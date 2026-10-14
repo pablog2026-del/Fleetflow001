@@ -1,6 +1,6 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import { say } from '../../lib/alert';
 import { Button, Field, Screen, s } from '../../components/ui';
 import { errorMessage } from '../../lib/format';
@@ -31,8 +31,10 @@ export default function SignIn() {
 
   return (
     <Screen edges={['top', 'bottom']}>
-      <View style={{ padding: 24, paddingTop: 48 }}>
-        <Text style={{ color: C.amber, fontWeight: '800', letterSpacing: 1 }}>NORTHGATE FLEET SYSTEMS</Text>
+      <View style={{ padding: 24, paddingTop: 16, width: '100%', maxWidth: 460, alignSelf: 'center' }}>
+        <Pressable onPress={() => router.replace('/welcome')} accessibilityRole="link" accessibilityLabel="Northgate Fleet Systems home" style={{ alignSelf: 'center' }}>
+          <Image source={require('../../../assets/logo.png')} resizeMode="contain" style={{ width: 300, height: 195 }} />
+        </Pressable>
         <Text style={[s.h1, { marginTop: 8 }]}>Sign in</Text>
         <Text style={[s.sub, { marginTop: 4 }]}>OEM-spec schedules, transparent invoices, and your approval on every repair.</Text>
         <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />

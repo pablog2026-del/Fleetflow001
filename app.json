@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0F1114",
+    "backgroundColor": "#17181B",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.northgatefleet.app",
@@ -20,12 +20,15 @@
     "android": {
       "package": "com.northgatefleet.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0F1114",
+        "backgroundColor": "#17181B",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION"],
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -35,15 +38,35 @@
       "shortName": "Northgate",
       "themeColor": "#0F1114",
       "backgroundColor": "#0F1114",
-      "display": "standalone"
+      "display": "standalone",
+      "description": "OEM-spec maintenance schedules, inspections, transparent invoices and owner approval for heavy-duty fleets."
     },
     "plugins": [
       "expo-router",
       "expo-web-browser",
       "expo-sharing",
-      ["expo-image-picker", { "cameraPermission": "Take photos of data plates and damage for your repair records." }],
-      ["expo-location", { "locationWhenInUsePermission": "Send your truck's location with a breakdown report." }],
-      "expo-notifications"
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Take photos of data plates and damage for your repair records."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Send your truck's location with a breakdown report."
+        }
+      ],
+      "expo-notifications",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 280,
+          "resizeMode": "contain",
+          "backgroundColor": "#0F1114"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false
