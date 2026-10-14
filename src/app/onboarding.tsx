@@ -1,5 +1,5 @@
 // Door 2, step 2: the new owner creates their company (pending / trial until Admin approves).
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { say } from '../lib/alert';
@@ -9,11 +9,13 @@ import { errorMessage } from '../lib/format';
 import { rpc } from '../lib/supabase';
 
 export default function Onboarding() {
-  const { refresh, signOut, session } = useAuth();
+  const { refresh, signOut, session, fleet, isAdmin } = useAuth();
   const [f, setF] = useState({ name: '', address_line1: '', city: '', state: 'NC', postal_code: '', phone: '', usdot_number: '',
     primary_contact_name: (session?.user.user_metadata?.full_name as string) ?? '' });
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (v: string) => setF({ ...f, [k]: v });
+
+  if (fleet || isAdmin) return <Redirect href="/" />;
 
   const save = async () => {
     if (!f.name.trim()) return say('Company name is required');
